@@ -190,33 +190,120 @@
   };
   const esc = (s) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 
-  /** .ics を作る。同じ日・限は同じUIDなので、入れ直すと上書きされる */
-  function buildICS(week, sel, monday, opts) {
+  /** 1週間分を、選んだ学年・クラス・コースの予定(VEVENT用のデータ)の配列にする */
+  function eventsForWeek(week, sel, monday, opts) {
     opts = opts || {};
-    const now = new Date();
-    const stamp = '' + now.getUTCFullYear() + pad(now.getUTCMonth() + 1) + pad(now.getUTCDate()) + 'T' + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + 'Z';
-    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//jikanwari-smartphone//JA', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:時間割', 'X-WR-TIMEZONE:Asia/Tokyo'];
-    let count = 0;
+    const events = [];
     week.days.forEach((day, d) => {
       if (day.off) return;
       const date = addDays(monday, d);
       resolveDay(week, d, sel).periods.forEach((pr) => {
         if (!pr.text) return;
-        count++;
-        lines.push('BEGIN:VEVENT',
-          'UID:' + ymd(date) + '-p' + pr.period + '@jikanwari.local',
-          'DTSTAMP:' + stamp,
-          'DTSTART:' + icsTime(date, pr.start),
-          'DTEND:' + icsTime(date, pr.end),
-          'SUMMARY:' + esc(pr.period + '限 ' + pr.text),
-          'DESCRIPTION:' + esc(label(sel) + '\n' + pr.start + '〜' + pr.end));
-        if (opts.alarm) lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc(pr.period + '限 ' + pr.text), 'TRIGGER:-PT' + opts.alarm + 'M', 'END:VALARM');
-        lines.push('END:VEVENT');
+        events.push({
+          uid: ymd(date) + '-p' + pr.period + '@jikanwari.local',
+          start: icsTime(date, pr.start),
+          end: icsTime(date, pr.end),
+          summary: pr.period + '限 ' + pr.text,
+          description: label(sel) + '\n' + pr.start + '〜' + pr.end,
+          alarm: opts.alarm,
+        });
       });
     });
-    lines.push('END:VCALENDAR');
-    return { ics: lines.join('\r\n') + '\r\n', count };
+    return events;
   }
 
-  return { BELLS, CLASSES, COURSES, WEEKDAYS, fromPdfjs, parseWeek, resolveDay, label, guessMonday, addDays, buildICS };
+  /** VEVENTデータの配列から .ics 本文を作る */
+  function icsFromEvents(events, calName) {
+    const now = new Date();
+    const stamp = '' + now.getUTCFullYear() + pad(now.getUTCMonth() + 1) + pad(now.getUTCDate()) + 'T' + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + pad(now.getUTCSeconds()) + 'Z';
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//jikanwari-smartphone//JA', 'CALSCALE:GREGORIAN',
+      'X-WR-CALNAME:' + esc(calName || '時間割'), 'X-WR-TIMEZONE:Asia/Tokyo', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H'];
+    // 同じUIDが複数あれば後勝ち(週の入れ直しに対応)
+    const byUid = new Map();
+    events.forEach((e) => byUid.set(e.uid, e));
+    [...byUid.values()].sort((a, b) => a.start.localeCompare(b.start)).forEach((e) => {
+      lines.push('BEGIN:VEVENT', 'UID:' + e.uid, 'DTSTAMP:' + stamp, 'DTSTART:' + e.start, 'DTEND:' + e.end,
+        'SUMMARY:' + esc(e.summary), 'DESCRIPTION:' + esc(e.description));
+      if (e.alarm) lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc(e.summary), 'TRIGGER:-PT' + e.alarm + 'M', 'END:VALARM');
+      lines.push('END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n') + '\r\n';
+  }
+
+  /** 1週間分だけの .ics を作る(「この週だけ追加」用)。同じ日・限は同じUIDなので、入れ直すと上書きされる */
+  function buildICS(week, sel, monday, opts) {
+    const events = eventsForWeek(week, sel, monday, opts);
+    return { ics: icsFromEvents(events, '時間割'), count: events.length };
+  }
+
+  /**
+   * 複数週(履歴)をまとめて1つの購読用カレンダーにする。
+   * weeksHistory: [{ monday:{y,m,d}, week }, ...] (順不同でよい)
+   */
+  function buildFeedICS(weeksHistory, sel, opts) {
+    const events = weeksHistory.flatMap((w) => eventsForWeek(w.week, sel, w.monday, opts));
+    return { ics: icsFromEvents(events, label(sel) + ' 時間割'), count: events.length };
+  }
+
+  // --- 学年・クラス・コースの組み合わせ一覧(購読用ファイルを学年分だけ用意する) ---
+  const GRADES_READY = [1, 2]; // 3年は準備中
+
+  function allCombos() {
+    const combos = [];
+    if (GRADES_READY.includes(1)) {
+      CLASSES.forEach((cls) => combos.push({ grade: 1, cls, course: null, bio: null }));
+    }
+    if (GRADES_READY.includes(2)) {
+      CLASSES.forEach((cls) => COURSES.forEach((course) => {
+        if (course === 'S2') { combos.push({ grade: 2, cls, course, bio: false }); combos.push({ grade: 2, cls, course, bio: true }); }
+        else combos.push({ grade: 2, cls, course, bio: null });
+      }));
+    }
+    return combos;
+  }
+
+  /** クラスの組み合わせから、固定のファイル名を作る(週が変わってもURLは変えない) */
+  function feedFileName(sel) {
+    if (sel.grade === 1) return `g1-${sel.cls}.ics`;
+    if (sel.course === 'S2') return `g${sel.grade}-${sel.cls}-S2-${sel.bio ? 'bio' : 'phys'}.ics`;
+    return `g${sel.grade}-${sel.cls}-${sel.course}.ics`;
+  }
+
+  // --- 週データをJSONで保存・復元する(notes[*][*].grades は Set なので変換が要る) ---
+  function weekToJSON(week) {
+    return Object.assign({}, week, {
+      notes: week.notes.map((day) => day.map((n) => (n ? { text: n.text, grades: [...n.grades] } : null))),
+    });
+  }
+  function weekFromJSON(obj) {
+    return Object.assign({}, obj, {
+      notes: obj.notes.map((day) => day.map((n) => (n ? { text: n.text, grades: new Set(n.grades) } : null))),
+    });
+  }
+
+  /** 週の一覧に新しい週を反映する(同じ月曜日があれば置き換え、月曜日の昇順で返す) */
+  function mergeWeek(weeksHistory, entry) {
+    const key = ymd(entry.monday);
+    const rest = weeksHistory.filter((w) => ymd(w.monday) !== key);
+    rest.push(entry);
+    rest.sort((a, b) => ymd(a.monday).localeCompare(ymd(b.monday)));
+    return rest;
+  }
+
+  /** 今日を含む(まだ終わっていない)週を選ぶ。なければ一番新しい週。 */
+  function pickCurrentWeek(weeksHistory, today) {
+    if (!weeksHistory.length) return null;
+    today = today || new Date();
+    const todayYmd = '' + today.getFullYear() + pad(today.getMonth() + 1) + pad(today.getDate());
+    const sorted = [...weeksHistory].sort((a, b) => ymd(a.monday).localeCompare(ymd(b.monday)));
+    const found = sorted.find((w) => ymd(addDays(w.monday, w.week.nDays - 1)) >= todayYmd);
+    return found || sorted[sorted.length - 1];
+  }
+
+  return {
+    BELLS, CLASSES, COURSES, WEEKDAYS, fromPdfjs, parseWeek, resolveDay, label, guessMonday, addDays,
+    buildICS, buildFeedICS, eventsForWeek, icsFromEvents, allCombos, feedFileName,
+    weekToJSON, weekFromJSON, mergeWeek, pickCurrentWeek,
+  };
 });

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>時間割 管理用</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --text:#1c2430; --sub:#66707d; --line:#dfe4ea; --accent:#2563eb; --accent-text:#fff; --chip:#eef2f7; --warn:#b45309; --ok:#15803d; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#10151c; --card:#1a212b; --text:#e8edf3; --sub:#94a0ae; --line:#2b3542; --accent:#5b8def; --accent-text:#0b1220; --chip:#252e3a; --warn:#f0b25a; --ok:#4ade80; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 -apple-system,"Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.2rem; }
+  h2 { font-size: 1rem; margin: 0 0 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .hint { color: var(--sub); font-size: .85rem; }
+  .err { color: var(--warn); }
+  .ok { color: var(--ok); }
+  input[type=file] { width:100%; padding:12px; border:2px dashed var(--line); border-radius:12px; background:var(--chip); color:var(--text); font:inherit; margin-bottom:8px; }
+  input[type=date] { font:inherit; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); }
+  .btn { display:block; width:100%; padding:14px; border:0; border-radius:12px; background:var(--accent); color:var(--accent-text); font:inherit; font-weight:700; margin-top:10px; }
+  .btn.sub { background:var(--chip); color:var(--text); border:1px solid var(--line); }
+  .btn:disabled { opacity: .5; }
+  table { border-collapse:collapse; width:100%; font-size:.82rem; margin-top:8px; }
+  th, td { border:1px solid var(--line); padding:4px 3px; text-align:center; }
+  th { background:var(--chip); }
+  ul { padding-left: 1.2em; }
+  li { margin: 4px 0; }
+  code { background: var(--chip); padding: 1px 5px; border-radius: 6px; }
+  ol { padding-left: 1.3em; }
+  ol li { margin: 6px 0; }
+  .pending { border-left: 3px solid var(--accent); padding-left: 10px; margin: 10px 0; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>時間割 管理用ページ</h1>
+  <p class="hint">生徒には見せなくてOKです(URLを教えなければ実質見つかりません)。ここでPDFを読み込ませて、公開用ファイルを書き出します。書き出したファイルをGitHubのサイトにドラッグ&ドロップでアップロードすれば、生徒側に反映されます。</p>
+
+  <section class="card">
+    <h2>1. これまでの分を読み込む</h2>
+    <p class="hint">サイトに公開済みの <code>data/weeks.json</code> を自動で読みにいきます。まだ無い場合や、ローカルで試す場合は下から選んでください。</p>
+    <div id="histStatus" class="hint">読み込み中…</div>
+    <input type="file" id="histFile" accept="application/json,.json">
+  </section>
+
+  <section class="card">
+    <h2>2. 新しいPDFを追加する</h2>
+    <input type="file" id="pdf" accept="application/pdf,.pdf" multiple>
+    <p class="hint">複数まとめて選んでもOKです。同じ週(同じ月曜日)を読み込むと、その週だけ上書きされます。</p>
+    <div id="newWeeks"></div>
+  </section>
+
+  <section class="card">
+    <h2>3. 取り込み済みの週</h2>
+    <div id="histList" class="hint">まだありません</div>
+  </section>
+
+  <section class="card">
+    <h2>4. 公開用ファイルを書き出す</h2>
+    <button class="btn" id="exportBtn" type="button" disabled>ファイルを書き出す</button>
+    <p class="hint" id="exportHint"></p>
+  </section>
+
+  <section class="card">
+    <h2>GitHubへのアップロード手順</h2>
+    <ol>
+      <li>書き出された <code>weeks.json</code> を、リポジトリの <code>data</code> フォルダを開いて「Add file → Upload files」でドラッグし、Commit。</li>
+      <li>書き出された <code>g*.ics</code> ファイルたちを、<code>ics</code> フォルダを開いて同じようにまとめてドラッグし、Commit。</li>
+      <li>数十秒〜1分待つと、サイト(<code>index.html</code>)に反映されます。</li>
+    </ol>
+    <p class="hint">フォルダが無ければ、Upload files の画面でファイル名の先頭に <code>data/weeks.json</code> のようにパスごと入力してドラッグすると、自動でフォルダが作られます。</p>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="timetable.js"></script>
+<script>
+(function () {
+  'use strict';
+  const T = window.Timetable;
+  const $ = (id) => document.getElementById(id);
+  const WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  let workerReady = null;
+  function setupWorker() {
+    if (!workerReady) workerReady = fetch(WORKER).then((r) => r.blob()).then((b) => { pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(b); })
+      .catch(() => { pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER; });
+    return workerReady;
+  }
+
+  let history = []; // [{monday, week}]
+  const mondayStr = (m) => `${m.y}-${String(m.m).padStart(2, '0')}-${String(m.d).padStart(2, '0')}`;
+
+  function renderHistList() {
+    if (!history.length) { $('histList').innerHTML = 'まだありません'; return; }
+    $('histList').innerHTML = '<ul>' + history.map((h) => `<li>${mondayStr(h.monday)} の週</li>`).join('') + '</ul>';
+    $('exportBtn').disabled = false;
+  }
+
+  async function loadHistoryFrom(json) {
+    try {
+      const arr = JSON.parse(json);
+      history = arr.map((h) => ({ monday: h.monday, week: T.weekFromJSON(h.week) }));
+      $('histStatus').innerHTML = `<span class="ok">既存データを読み込みました(${history.length}週分)</span>`;
+    } catch (e) {
+      $('histStatus').innerHTML = `<span class="err">読み込みに失敗しました: ${e.message}</span>`;
+    }
+    renderHistList();
+  }
+
+  fetch('./data/weeks.json').then((r) => { if (!r.ok) throw new Error('not found'); return r.text(); })
+    .then(loadHistoryFrom)
+    .catch(() => { $('histStatus').textContent = 'まだ公開データが無いようです(初回はこのままでOK)。既存の weeks.json があれば下で選んでください。'; });
+
+  $('histFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    await loadHistoryFrom(await f.text());
+  });
+
+  $('pdf').addEventListener('change', async (e) => {
+    const files = [...e.target.files];
+    if (!files.length) return;
+    $('newWeeks').innerHTML = '読み取り中…';
+    await setupWorker();
+    const results = [];
+    for (const f of files) {
+      try {
+        const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+        const page = await doc.getPage(1);
+        const week = T.parseWeek(T.fromPdfjs(await page.getTextContent()));
+        const monday = T.guessMonday(f.name, week, new Date());
+        results.push({ file: f.name, week, monday, ok: true });
+      } catch (err) {
+        results.push({ file: f.name, ok: false, error: err.message });
+      }
+    }
+    $('newWeeks').innerHTML = results.map((r, i) => {
+      if (!r.ok) return `<p class="err">${r.file}: ${r.error}</p>`;
+      return `<div class="pending"><div class="row"><b>${r.file}</b><label>月曜日 <input type="date" data-i="${i}" class="mon" value="${mondayStr(r.monday)}"></label></div>
+        <p class="hint">${r.week.nDays}日分・${r.week.nRows}行を読み取りました</p></div>`;
+    }).join('');
+    results.forEach((r, i) => { if (r.ok) r._input = document.querySelector(`.mon[data-i="${i}"]`); });
+
+    document.getElementById('newWeeks').querySelectorAll('.mon').forEach((inp) => inp.addEventListener('change', apply));
+    function apply() {
+      results.forEach((r) => {
+        if (!r.ok) return;
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(r._input.value);
+        if (!m) return;
+        const monday = { y: +m[1], m: +m[2], d: +m[3] };
+        history = T.mergeWeek(history, { monday, week: r.week });
+      });
+      renderHistList();
+    }
+    apply();
+  });
+
+  function download(name, content, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('exportBtn').addEventListener('click', async () => {
+    if (!history.length) return;
+    $('exportBtn').disabled = true;
+    $('exportHint').textContent = '書き出し中…(ダウンロードの確認が出たら許可してください)';
+    const json = JSON.stringify(history.map((h) => ({ monday: h.monday, week: T.weekToJSON(h.week) })));
+    download('weeks.json', json, 'application/json');
+    await new Promise((r) => setTimeout(r, 400));
+    const combos = T.allCombos();
+    for (let i = 0; i < combos.length; i++) {
+      const { ics } = T.buildFeedICS(history, combos[i]);
+      download(T.feedFileName(combos[i]), ics, 'text/calendar;charset=utf-8');
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    $('exportHint').innerHTML = `<span class="ok">${1 + combos.length}個のファイルをダウンロードしました。ダウンロードフォルダから、weeks.json は data フォルダへ、g*.ics は ics フォルダへアップロードしてください。</span>`;
+    $('exportBtn').disabled = false;
+  });
+})();
+</script>
+</body>
+</html>
