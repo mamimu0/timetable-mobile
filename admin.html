@@ -51,6 +51,17 @@
   </section>
 
   <section class="card">
+    <h2>2. 公開する</h2>
+    <button class="btn" id="publishBtn" type="button" disabled>公開用ファイルを書き出す(ダウンロード)</button>
+    <p class="hint" id="exportHint"></p>
+    <details style="margin-top:10px">
+      <summary>手動でアップロードしたい場合</summary>
+      <button class="btn sub" id="downloadBtn" type="button">ファイルをダウンロードする</button>
+      <p class="hint">ダウンロードされた <code>weeks.json</code> は <code>data</code> フォルダへ、<code>g*.ics</code> は <code>ics</code> フォルダへ、GitHub上の「Add file → Upload files」でドラッグ&ドロップしてCommitしてください。</p>
+    </details>
+  </section>
+
+  <section class="card">
     <details id="histDetails">
       <summary>取り込み済みの週(<span id="histCount">0</span>件)</summary>
       <div id="histList" class="hint" style="margin-top:8px">まだありません</div>
@@ -85,17 +96,6 @@
         <button class="btn sub" id="ghSave" type="button" style="flex:1">保存</button>
         <button class="btn sub" id="ghClear" type="button" style="flex:1">この端末の設定を削除</button>
       </div>
-    </details>
-  </section>
-
-  <section class="card">
-    <h2>2. 公開する</h2>
-    <button class="btn" id="publishBtn" type="button" disabled>公開用ファイルを書き出す(ダウンロード)</button>
-    <p class="hint" id="exportHint"></p>
-    <details style="margin-top:10px">
-      <summary>手動でアップロードしたい場合</summary>
-      <button class="btn sub" id="downloadBtn" type="button">ファイルをダウンロードする</button>
-      <p class="hint">ダウンロードされた <code>weeks.json</code> は <code>data</code> フォルダへ、<code>g*.ics</code> は <code>ics</code> フォルダへ、GitHub上の「Add file → Upload files」でドラッグ&ドロップしてCommitしてください。</p>
     </details>
   </section>
 </main>
