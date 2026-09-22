@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>時間割をスマホへ</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #ffffff; --text: #1c2430; --sub: #66707d; --line: #dfe4ea;
+    --accent: #2563eb; --accent-text: #ffffff; --chip: #eef2f7; --off: #f0f1f3; --warn: #b45309;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10151c; --card: #1a212b; --text: #e8edf3; --sub: #94a0ae; --line: #2b3542;
+      --accent: #5b8def; --accent-text: #0b1220; --chip: #252e3a; --off: #151b23; --warn: #f0b25a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 -apple-system, "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.25rem; margin: 8px 0 16px; }
+  h2 { font-size: 1rem; margin: 0 0 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .step { color: var(--accent); font-weight: 700; margin-right: 6px; }
+  .hint { color: var(--sub); font-size: .85rem; margin: 6px 0 0; }
+  .err { color: var(--warn); font-size: .9rem; margin: 8px 0 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .row > label.k { width: 64px; color: var(--sub); font-size: .85rem; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button { min-width: 56px; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--chip); color: var(--text); font: inherit; }
+  .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 700; }
+  .seg button:disabled { opacity: .4; }
+  input[type=file] { width: 100%; padding: 14px; border: 2px dashed var(--line); border-radius: 12px; background: var(--chip); color: var(--text); font: inherit; }
+  input[type=date], input[type=text], select { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  input[type=text] { width: 100%; }
+  .btn { display: block; width: 100%; padding: 14px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-text); font: inherit; font-weight: 700; margin-top: 10px; }
+  .btn.sub { background: var(--chip); color: var(--text); border: 1px solid var(--line); }
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: .95rem; }
+  th, td { border: 1px solid var(--line); text-align: center; padding: 8px 2px; overflow-wrap: anywhere; }
+  th { background: var(--chip); font-weight: 600; font-size: .8rem; }
+  th.p { width: 34px; color: var(--sub); }
+  td.empty { color: var(--sub); }
+  td.off, th.off { background: var(--off); color: var(--sub); }
+  .badge { display: inline-block; font-size: .65rem; color: #fff; background: #d33; border-radius: 6px; padding: 0 4px; margin-top: 2px; }
+  details summary { cursor: pointer; color: var(--sub); font-size: .9rem; }
+  .alias { display: grid; grid-template-columns: 24px 1fr; gap: 6px 8px; align-items: center; margin-top: 8px; }
+  #wallImg { width: 100%; max-width: 320px; border-radius: 12px; border: 1px solid var(--line); margin-top: 10px; display: none; }
+  .howto { font-size: .88rem; color: var(--sub); }
+  .howto b { color: var(--text); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>時間割をスマホへ</h1>
+
+  <section class="card">
+    <h2><span class="step">1</span>時間割のPDFを選ぶ</h2>
+    <input type="file" id="pdf" accept="application/pdf,.pdf">
+    <p class="hint">PDFはこの端末の中だけで読み取ります（どこにも送信しません）。</p>
+    <p class="err" id="err" hidden></p>
+  </section>
+
+  <section class="card" id="selCard">
+    <h2><span class="step">2</span>自分のクラスを選ぶ</h2>
+    <div class="row"><label class="k">学年</label>
+      <div class="seg" id="gradeSeg">
+        <button type="button" data-v="1">1年</button>
+        <button type="button" data-v="2">2年</button>
+        <button type="button" data-v="3" disabled>3年</button>
+      </div>
+    </div>
+    <div class="row"><label class="k">クラス</label>
+      <div class="seg" id="clsSeg">
+        <button type="button" data-v="A">A</button><button type="button" data-v="B">B</button><button type="button" data-v="C">C</button>
+      </div>
+    </div>
+    <div class="row" id="courseRow"><label class="k">コース</label>
+      <div class="seg" id="courseSeg">
+        <button type="button" data-v="L">L</button><button type="button" data-v="S1">S1</button><button type="button" data-v="S2">S2</button>
+      </div>
+    </div>
+    <div class="row" id="bioRow"><label class="k">理科</label>
+      <div class="seg" id="bioSeg">
+        <button type="button" data-v="phys">物理</button><button type="button" data-v="bio">生物</button>
+      </div>
+    </div>
+    <p class="hint" id="gradeHint">3年は準備中です（社会科目の分かれ方が分かったら対応します）。</p>
+    <details>
+      <summary>α・β・γ を科目名に置き換える</summary>
+      <div class="alias">
+        <span>α</span><input type="text" id="aliasA" placeholder="例: 日本史">
+        <span>β</span><input type="text" id="aliasB" placeholder="例: 世界史">
+        <span>γ</span><input type="text" id="aliasG" placeholder="例: 地理">
+      </div>
+    </details>
+  </section>
+
+  <section class="card" id="prevCard" hidden>
+    <h2><span class="step">3</span>この週の時間割</h2>
+    <div class="row"><label class="k" for="monday">月曜日</label><input type="date" id="monday"></div>
+    <p class="hint" id="mondayHint">ファイル名から自動で入れています。違っていたら直してください。</p>
+    <div style="margin-top:10px"><table id="tbl"></table></div>
+    <p class="hint">「・」は空きコマ／予定なしです。7限は毎週変わります。</p>
+  </section>
+
+  <section class="card" id="outCard" hidden>
+    <h2><span class="step">4</span>スマホに入れる</h2>
+    <div class="row"><label class="k">通知</label>
+      <select id="alarm">
+        <option value="0">なし</option>
+        <option value="5" selected>授業の5分前</option>
+        <option value="10">授業の10分前</option>
+      </select>
+    </div>
+    <button class="btn" id="icsBtn" type="button">カレンダーに追加（.ics）</button>
+    <p class="howto"><b>iPhone</b>：ダウンロードされた .ics を「ファイル」アプリで開き、「すべて追加」。ロック画面を長押し→カスタマイズ→ウィジェットで「カレンダー」を追加すると、次の授業が表示されます。<br>
+      <b>Android</b>：ダウンロードした .ics を開いて Google カレンダーに追加。授業前の通知がロック画面に出ます。<br>
+      同じ週を入れ直すと予定は上書きされます。</p>
+
+    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+
+    <div class="row"><label class="k">壁紙</label><select id="wallDay"></select></div>
+    <button class="btn sub" id="wallBtn" type="button">その日の時間割を壁紙にする</button>
+    <img id="wallImg" alt="壁紙プレビュー">
+    <p class="hint" id="wallHint" hidden>画像を長押しして「写真に追加」（Androidは長押しで保存）し、ロック画面の壁紙に設定してください。</p>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="timetable.js"></script>
+<script>
+(function () {
+  'use strict';
+  const T = window.Timetable;
+  const $ = (id) => document.getElementById(id);
+  const WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // ---- 選択の保存 ----
+  const KEY = 'jikanwari-sel-v1';
+  const sel = { grade: 1, cls: 'A', course: 'L', bio: false, alias: { 'α': '', 'β': '', 'γ': '' } };
+  try { Object.assign(sel, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(sel)); } catch (e) {} };
+
+  let week = null;
+  let fileName = '';
+
+  const cleanSel = () => Object.assign({}, sel, { alias: Object.fromEntries(Object.entries(sel.alias).filter(([, v]) => v.trim())) });
+
+  // ---- ボタン群 ----
+  function seg(id, get, set) {
+    const el = $(id);
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b || b.disabled) return;
+      set(b.dataset.v);
+      save(); refresh();
+    });
+    return () => el.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(get() === b.dataset.v)));
+  }
+  const paint = [
+    seg('gradeSeg', () => String(sel.grade), (v) => { sel.grade = +v; }),
+    seg('clsSeg', () => sel.cls, (v) => { sel.cls = v; }),
+    seg('courseSeg', () => sel.course, (v) => { sel.course = v; }),
+    seg('bioSeg', () => (sel.bio ? 'bio' : 'phys'), (v) => { sel.bio = v === 'bio'; }),
+  ];
+  [['aliasA', 'α'], ['aliasB', 'β'], ['aliasG', 'γ']].forEach(([id, k]) => {
+    $(id).value = sel.alias[k] || '';
+    $(id).addEventListener('input', () => { sel.alias[k] = $(id).value; save(); refresh(); });
+  });
+
+  // ---- PDF読み込み ----
+  let workerReady = null;
+  function setupWorker() {
+    if (!workerReady) {
+      workerReady = fetch(WORKER).then((r) => r.blob()).then((b) => { pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(b); })
+        .catch(() => { pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER; });
+    }
+    return workerReady;
+  }
+  const showErr = (msg) => { $('err').hidden = !msg; $('err').textContent = msg || ''; };
+
+  $('pdf').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    showErr('');
+    try {
+      await setupWorker();
+      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+      const page = await doc.getPage(1);
+      week = T.parseWeek(T.fromPdfjs(await page.getTextContent()));
+      fileName = f.name;
+      const mon = T.guessMonday(fileName, week, new Date());
+      $('monday').value = mon ? `${mon.y}-${String(mon.m).padStart(2, '0')}-${String(mon.d).padStart(2, '0')}` : '';
+      $('prevCard').hidden = false; $('outCard').hidden = false;
+      refresh();
+    } catch (err) {
+      week = null;
+      $('prevCard').hidden = true; $('outCard').hidden = true;
+      showErr('読み取れませんでした: ' + (err && err.message ? err.message : err));
+    }
+  });
+  $('monday').addEventListener('change', refresh);
+
+  const getMonday = () => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec($('monday').value);
+    return m ? { y: +m[1], m: +m[2], d: +m[3] } : null;
+  };
+
+  // ---- 表示 ----
+  function refresh() {
+    paint.forEach((p) => p());
+    $('courseRow').hidden = sel.grade < 2;
+    $('bioRow').hidden = !(sel.grade >= 2 && sel.course === 'S2');
+    if (!week) return;
+    const mon = getMonday();
+    let resolved;
+    try { resolved = week.days.map((_, d) => T.resolveDay(week, d, cleanSel())); }
+    catch (err) { showErr(err.message); return; }
+    showErr('');
+
+    let html = '<tr><th class="p"></th>';
+    resolved.forEach((r, d) => {
+      const dt = mon ? T.addDays(mon, d) : null;
+      html += `<th class="${r.day.off ? 'off' : ''}">${r.day.weekday}${dt ? '<br>' + dt.m + '/' + dt.d : ''}${r.day.is45 ? '<br><span class="badge">45分</span>' : ''}</th>`;
+    });
+    html += '</tr>';
+    for (let p = 0; p < 7; p++) {
+      html += `<tr><th class="p">${p + 1}</th>`;
+      resolved.forEach((r) => {
+        if (r.day.off) html += `<td class="off">${p === 0 ? '休' : ''}</td>`;
+        else { const t = r.periods[p].text; html += `<td class="${t ? '' : 'empty'}">${t || '・'}</td>`; }
+      });
+      html += '</tr>';
+    }
+    $('tbl').innerHTML = html;
+
+    // 壁紙の日付選択
+    const cur = $('wallDay').value;
+    $('wallDay').innerHTML = resolved.filter((r) => !r.day.off).map((r) => {
+      const dt = mon ? T.addDays(mon, r.day.index) : null;
+      return `<option value="${r.day.index}">${r.day.weekday}曜日${dt ? ' ' + dt.m + '/' + dt.d : ''}</option>`;
+    }).join('');
+    if (cur) $('wallDay').value = cur;
+  }
+
+  // ---- .ics ----
+  $('icsBtn').addEventListener('click', () => {
+    const mon = getMonday();
+    if (!mon) { showErr('月曜日の日付を入れてください'); return; }
+    const { ics, count } = T.buildICS(week, cleanSel(), mon, { alarm: +$('alarm').value });
+    if (!count) { showErr('追加できる授業がありません'); return; }
+    const name = `時間割_${mon.m}-${String(mon.d).padStart(2, '0')}週_${T.label(sel).replace(/[ ()（）]/g, '')}.ics`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  // ---- 壁紙 ----
+  $('wallBtn').addEventListener('click', () => {
+    if (!week || $('wallDay').value === '') return;
+    const mon = getMonday();
+    const d = +$('wallDay').value;
+    const r = T.resolveDay(week, d, cleanSel());
+    const dt = mon ? T.addDays(mon, d) : null;
+    const W = 1179, H = 2556;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#0f172a'); bg.addColorStop(1, '#1e293b');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    const font = '"Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif';
+    // 時計(上部)を避けて中央より下に配置
+    const shown = r.periods.filter((p) => p.period <= 6 || p.text);
+    const rowH = 150, x0 = 90, top = 1010;
+    g.fillStyle = 'rgba(15,23,42,.55)';
+    g.beginPath(); g.roundRect(x0 - 30, top - 110, W - 2 * (x0 - 30), 150 + shown.length * rowH + 30, 40); g.fill();
+    g.fillStyle = '#e2e8f0'; g.font = `bold 52px ${font}`; g.textBaseline = 'alphabetic';
+    g.fillText(`${dt ? dt.m + '/' + dt.d : ''}(${r.day.weekday}) ${T.label(sel)}${r.day.is45 ? '  45分授業' : ''}`, x0, top - 30);
+    shown.forEach((p, i) => {
+      const y = top + 40 + i * rowH + 95;
+      g.fillStyle = '#94a3b8'; g.font = `600 40px ${font}`; g.fillText(p.period + '限', x0, y);
+      g.fillStyle = p.text ? '#ffffff' : '#64748b'; g.font = `bold 72px ${font}`; g.fillText(p.text || '—', x0 + 150, y + 4);
+      g.fillStyle = '#94a3b8'; g.font = `36px ${font}`; g.textAlign = 'right'; g.fillText(`${p.start}–${p.end}`, W - x0, y); g.textAlign = 'left';
+    });
+    const img = $('wallImg');
+    img.src = c.toDataURL('image/png'); img.style.display = 'block';
+    $('wallHint').hidden = false;
+  });
+
+  refresh();
+})();
+</script>
+</body>
+</html>
