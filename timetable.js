@@ -60,10 +60,17 @@
       .sort((a, b) => a.cx - b.cx)
       .forEach((i) => { const d = dayOf(i.cx); if (days[d]) days[d].text += i.str; });
     days.forEach((d) => {
-      const m = /(\d{1,2})月(\d{1,2})日/.exec(d.text);
+      // 「9月14日」のような表記のほか、行事の日だけ「2026/9/17」のようなスラッシュ表記になることがある
+      let m = /(\d{1,2})月(\d{1,2})日/.exec(d.text);
+      let month = m ? +m[1] : null;
+      let day = m ? +m[2] : null;
+      if (!m) {
+        m = /(\d{4})\/(\d{1,2})\/(\d{1,2})/.exec(d.text);
+        if (m) { month = +m[2]; day = +m[3]; }
+      }
       d.hasDate = !!m;
-      d.month = m ? +m[1] : null;
-      d.day = m ? +m[2] : null;
+      d.month = month;
+      d.day = day;
       d.is45 = /45分/.test(d.text);
       d.off = !d.hasDate; // 日付がない曜日は祝日などの休み
       d.weekday = WEEKDAYS[d.index] || '';
