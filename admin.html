@@ -165,8 +165,12 @@
     }
     $('newWeeks').innerHTML = results.map((r, i) => {
       if (!r.ok) return `<p class="err">${r.file}: ${r.error}</p>`;
+      const days = r.week.days.map((d) => d.off
+        ? `<span class="err">${d.weekday}: 休み扱い(「${d.text}」を日付として読めませんでした)</span>`
+        : `<span class="ok">${d.weekday}${d.month}/${d.day}${d.is45 ? '(45分)' : ''}</span>`).join(' ・ ');
       return `<div class="pending"><div class="row"><b>${r.file}</b><label>月曜日 <input type="date" data-i="${i}" class="mon" value="${mondayStr(r.monday)}"></label></div>
-        <p class="hint">${r.week.nDays}日分・${r.week.nRows}行を読み取りました</p></div>`;
+        <p class="hint">${r.week.nDays}日分・${r.week.nRows}行を読み取りました</p>
+        <p class="hint">${days}</p></div>`;
     }).join('');
     results.forEach((r, i) => { if (r.ok) r._input = document.querySelector(`.mon[data-i="${i}"]`); });
 
