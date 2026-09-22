@@ -106,19 +106,22 @@
   <section class="card" id="outCard" hidden>
     <h2><span class="step">3</span>スマホに登録する</h2>
     <p class="hint">最初に1回登録すれば、あとは自動で更新されます。ファイルのダウンロードや削除は不要です。</p>
-    <a class="btn" id="subBtn" href="#">カレンダーに登録する(iPhone)</a>
-    <div class="urlbox">
-      <input type="text" id="subUrl" readonly>
-      <button type="button" class="btn sub" id="copyBtn" style="margin:0;width:auto;padding:9px 14px">コピー</button>
-    </div>
-    <p class="howto">
-      <b>iPhone</b>：上のボタンをタップ→「登録」。うまく開かない場合は、設定アプリ→カレンダー→アカウント→アカウントを追加→「登録購読」で、上のURLを貼り付けます。<br>
-      <b>Android</b>：Googleカレンダーアプリ→設定→カレンダーを追加→「URLで追加」で、上のURLを貼り付けます。<br>
-      登録後は次の授業がロック画面のカレンダーに出ます。通知が鳴るかは機種によります。
-    </p>
+    <a class="btn" id="subBtn" href="#">カレンダーに登録する</a>
+    <p class="howto">タップ→「登録」で完了です。登録後は次の授業がロック画面のカレンダーに出ます。</p>
 
     <details style="margin-top:12px">
-      <summary>うまく登録できない・この週だけでいい場合</summary>
+      <summary>Androidの方・うまく登録できない場合</summary>
+      <div class="urlbox">
+        <input type="text" id="subUrl" readonly>
+        <button type="button" class="btn sub" id="copyBtn" style="margin:0;width:auto;padding:9px 14px">コピー</button>
+      </div>
+      <p class="howto">
+        <b>Android</b>：Googleカレンダーアプリ→設定→カレンダーを追加→「URLで追加」で、上のURLを貼り付けます。<br>
+        <b>iPhone</b>：設定アプリ→カレンダー→アカウント→アカウントを追加→「登録購読」で、上のURLを貼り付けます。<br>
+        通知が鳴るかは機種によります。
+      </p>
+      <hr style="border:0;border-top:1px solid var(--line);margin:12px 0">
+      <p class="hint">この週だけでいい場合</p>
       <div class="row"><label class="k">通知</label>
         <select id="alarm">
           <option value="0">なし</option>

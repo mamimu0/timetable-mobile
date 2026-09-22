@@ -39,28 +39,29 @@
 <main>
   <h1>時間割 管理用ページ</h1>
   <p class="hint">生徒には見せなくてOKです(URLを教えなければ実質見つかりません)。ここでPDFを読み込ませて、公開用ファイルを書き出します。書き出したファイルをGitHubのサイトにドラッグ&ドロップでアップロードすれば、生徒側に反映されます。</p>
+  <p class="hint" id="histStatus">公開済みデータを読み込み中…</p>
 
   <section class="card">
-    <h2>1. これまでの分を読み込む</h2>
-    <p class="hint">サイトに公開済みの <code>data/weeks.json</code> を自動で読みにいきます。まだ無い場合や、ローカルで試す場合は下から選んでください。</p>
-    <div id="histStatus" class="hint">読み込み中…</div>
-    <input type="file" id="histFile" accept="application/json,.json">
-  </section>
-
-  <section class="card">
-    <h2>2. 新しいPDFを追加する</h2>
+    <h2>1. 新しいPDFを追加する</h2>
     <input type="file" id="pdf" accept="application/pdf,.pdf" multiple>
     <p class="hint">複数まとめて選んでもOKです。同じ週(同じ月曜日)を読み込むと、その週だけ上書きされます。</p>
     <div id="newWeeks"></div>
   </section>
 
   <section class="card">
-    <h2>3. 取り込み済みの週</h2>
-    <div id="histList" class="hint">まだありません</div>
+    <details id="histDetails">
+      <summary>取り込み済みの週(<span id="histCount">0</span>件)</summary>
+      <div id="histList" class="hint" style="margin-top:8px">まだありません</div>
+    </details>
+    <details style="margin-top:10px">
+      <summary>自動で読み込めない場合</summary>
+      <p class="hint">サイトに公開済みの <code>data/weeks.json</code> を手動で選んでください。</p>
+      <input type="file" id="histFile" accept="application/json,.json">
+    </details>
   </section>
 
   <section class="card">
-    <h2>4. 公開用ファイルを書き出す</h2>
+    <h2>2. 公開用ファイルを書き出す</h2>
     <button class="btn" id="exportBtn" type="button" disabled>ファイルを書き出す</button>
     <p class="hint" id="exportHint"></p>
   </section>
@@ -95,8 +96,10 @@
   const mondayStr = (m) => `${m.y}-${String(m.m).padStart(2, '0')}-${String(m.d).padStart(2, '0')}`;
 
   function renderHistList() {
+    $('histCount').textContent = history.length;
     if (!history.length) { $('histList').innerHTML = 'まだありません'; return; }
-    $('histList').innerHTML = '<ul>' + history.map((h) => `<li>${mondayStr(h.monday)} の週</li>`).join('') + '</ul>';
+    const sorted = [...history].sort((a, b) => mondayStr(a.monday).localeCompare(mondayStr(b.monday)));
+    $('histList').innerHTML = '<ul>' + sorted.map((h) => `<li>${mondayStr(h.monday)} の週</li>`).join('') + '</ul>';
     $('exportBtn').disabled = false;
   }
 
@@ -104,7 +107,7 @@
     try {
       const arr = JSON.parse(json);
       history = arr.map((h) => ({ monday: h.monday, week: T.weekFromJSON(h.week) }));
-      $('histStatus').innerHTML = `<span class="ok">既存データを読み込みました(${history.length}週分)</span>`;
+      $('histStatus').innerHTML = `<span class="ok">公開済みデータを読み込みました(${history.length}週分)</span>`;
     } catch (e) {
       $('histStatus').innerHTML = `<span class="err">読み込みに失敗しました: ${e.message}</span>`;
     }
@@ -113,7 +116,7 @@
 
   fetch('./data/weeks.json').then((r) => { if (!r.ok) throw new Error('not found'); return r.text(); })
     .then(loadHistoryFrom)
-    .catch(() => { $('histStatus').textContent = 'まだ公開データが無いようです(初回はこのままでOK)。既存の weeks.json があれば下で選んでください。'; });
+    .catch(() => { $('histStatus').textContent = 'まだ公開データが無いようです(初回はこのままでOK)。読み込めない場合は下の「自動で読み込めない場合」から選んでください。'; });
 
   $('histFile').addEventListener('change', async (e) => {
     const f = e.target.files[0]; if (!f) return;
