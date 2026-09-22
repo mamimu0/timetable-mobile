@@ -71,14 +71,16 @@
         <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHubのトークン発行ページ</a>を開く</li>
         <li>Repository access を「Only select repositories」にし、<code>timetable-mobile</code> を選ぶ</li>
         <li>Permissions → Repository permissions → <b>Contents</b> を <b>Read and write</b> にする</li>
-        <li>有効期限はお好みで(90日など)。「Generate token」を押す</li>
-        <li>表示されたトークン(<code>github_pat_...</code>)をコピーして、下に貼り付けて保存</li>
+        <li>有効期限を選ぶ(90日など。GitHubの実際の期限日はこの後の画面か、発行済みトークン一覧で確認できます)。「Generate token」を押す</li>
+        <li>表示されたトークン(<code>github_pat_...</code>)をコピーして、下に貼り付けて保存。<b>有効期限の日付も、GitHubで選んだ通りに入力してください</b>(このページに表示するためのメモで、GitHub側の実際の期限とは別管理です)</li>
       </ol>
       <p class="hint">このトークンは<b>このブラウザだけ</b>に保存され、サイトのコードには含まれません。誰にも見せず、他の端末では使わないでください。不要になったらGitHub側でいつでも失効できます。</p>
       <label class="hint">リポジトリ(owner/repo)</label>
       <input type="text" id="ghRepoFull" value="mamimu0/timetable-mobile">
       <label class="hint">トークン</label>
       <input type="password" id="ghToken" placeholder="github_pat_...">
+      <label class="hint">有効期限(GitHubで選んだ日付。「期限なし」にした場合は空欄のまま)</label>
+      <input type="date" id="ghExpiry">
       <div class="row">
         <button class="btn sub" id="ghSave" type="button" style="flex:1">保存</button>
         <button class="btn sub" id="ghClear" type="button" style="flex:1">この端末の設定を削除</button>
@@ -217,11 +219,21 @@
   const setGhConfig = (cfg) => { try { localStorage.setItem(GH_KEY, JSON.stringify(cfg)); } catch (e) {} };
   const clearGhConfig = () => { try { localStorage.removeItem(GH_KEY); } catch (e) {} };
 
+  function expiryText(expiresAt) {
+    if (!expiresAt) return '<span class="hint">有効期限: 未設定(期限なし、または未入力)</span>';
+    const days = Math.ceil((new Date(expiresAt + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000);
+    if (days < 0) return `<span class="err">有効期限: ${expiresAt}(${-days}日前に切れています。新しいトークンを発行してください)</span>`;
+    if (days === 0) return `<span class="err">有効期限: ${expiresAt}(今日までです)</span>`;
+    if (days <= 14) return `<span class="err">有効期限: ${expiresAt}(あと${days}日)</span>`;
+    return `<span class="ok">有効期限: ${expiresAt}(あと${days}日)</span>`;
+  }
+
   function refreshGhUI() {
     const cfg = getGhConfig();
     if (cfg && cfg.token) {
-      $('ghStatus').innerHTML = `<span class="ok">連携済み: ${cfg.repoFull}(このブラウザに保存されています)</span>`;
+      $('ghStatus').innerHTML = `<span class="ok">連携済み: ${cfg.repoFull}</span>(このブラウザに保存されています)<br>${expiryText(cfg.expiresAt)}`;
       $('publishBtn').textContent = 'GitHubへ公開する';
+      $('ghExpiry').value = cfg.expiresAt || '';
     } else {
       $('ghStatus').textContent = '未設定です。設定すると、下の「公開する」を押すだけでGitHubに反映されます。';
       $('publishBtn').textContent = '公開用ファイルを書き出す(ダウンロード)';
@@ -232,9 +244,12 @@
 
   $('ghSave').addEventListener('click', () => {
     const repoFull = $('ghRepoFull').value.trim();
-    const token = $('ghToken').value.trim();
-    if (!repoFull.includes('/') || !token) { alert('owner/repo とトークンの両方を入力してください'); return; }
-    setGhConfig({ repoFull, token });
+    const inputToken = $('ghToken').value.trim();
+    const expiresAt = $('ghExpiry').value || '';
+    const existing = getGhConfig();
+    const token = inputToken || (existing && existing.token) || '';
+    if (!repoFull.includes('/') || !token) { alert('owner/repo とトークンの両方を入力してください(トークンを変えない場合は、期限だけ更新することもできます)'); return; }
+    setGhConfig({ repoFull, token, expiresAt });
     $('ghToken').value = '';
     refreshGhUI();
   });
