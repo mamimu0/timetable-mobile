@@ -43,7 +43,6 @@
   .badge { display: inline-block; font-size: .65rem; color: #fff; background: #d33; border-radius: 6px; padding: 0 4px; margin-top: 2px; }
   details summary { cursor: pointer; color: var(--sub); font-size: .9rem; }
   .alias { display: grid; grid-template-columns: 24px 1fr; gap: 6px 8px; align-items: center; margin-top: 8px; }
-  #wallImg { width: 100%; max-width: 320px; border-radius: 12px; border: 1px solid var(--line); margin-top: 10px; display: none; }
   .howto { font-size: .88rem; color: var(--sub); }
   .howto b { color: var(--text); }
   .urlbox { display:flex; gap:6px; margin-top:8px; }
@@ -131,13 +130,6 @@
       </div>
       <button class="btn sub" id="icsBtn" type="button">今週だけ追加(.icsをダウンロード)</button>
     </details>
-
-    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
-
-    <div class="row"><label class="k">壁紙</label><select id="wallDay"></select></div>
-    <button class="btn sub" id="wallBtn" type="button">その日の時間割を壁紙にする</button>
-    <img id="wallImg" alt="壁紙プレビュー">
-    <p class="hint" id="wallHint" hidden>画像を長押しして「写真に追加」（Androidは長押しで保存）し、ロック画面の壁紙に設定してください。</p>
   </section>
 </main>
 
@@ -240,14 +232,6 @@
     }
     $('tbl').innerHTML = html;
 
-    // 壁紙の日付選択
-    const cur = $('wallDay').value;
-    $('wallDay').innerHTML = resolved.filter((r) => !r.day.off).map((r) => {
-      const dt = T.addDays(monday, r.day.index);
-      return `<option value="${r.day.index}">${r.day.weekday}曜日 ${dt.m}/${dt.d}</option>`;
-    }).join('');
-    if (cur) $('wallDay').value = cur;
-
     // 購読リンク
     const fileName = T.feedFileName(cleanSel());
     const feedUrl = new URL('ics/' + fileName, location.href).href;
@@ -271,36 +255,6 @@
     a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
     a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
-  });
-
-  // ---- 壁紙 ----
-  $('wallBtn').addEventListener('click', () => {
-    if (!current || $('wallDay').value === '') return;
-    const d = +$('wallDay').value;
-    const r = T.resolveDay(current.week, d, cleanSel());
-    const dt = T.addDays(current.monday, d);
-    const W = 1179, H = 2556;
-    const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const g = c.getContext('2d');
-    const bg = g.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, '#0f172a'); bg.addColorStop(1, '#1e293b');
-    g.fillStyle = bg; g.fillRect(0, 0, W, H);
-    const font = '"Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif';
-    const shown = r.periods.filter((p) => p.period <= 6 || p.text);
-    const rowH = 150, x0 = 90, top = 1010;
-    g.fillStyle = 'rgba(15,23,42,.55)';
-    g.beginPath(); g.roundRect(x0 - 30, top - 110, W - 2 * (x0 - 30), 150 + shown.length * rowH + 30, 40); g.fill();
-    g.fillStyle = '#e2e8f0'; g.font = `bold 52px ${font}`; g.textBaseline = 'alphabetic';
-    g.fillText(`${dt.m}/${dt.d}(${r.day.weekday}) ${T.label(sel)}${r.day.is45 ? '  45分授業' : ''}`, x0, top - 30);
-    shown.forEach((p, i) => {
-      const y = top + 40 + i * rowH + 95;
-      g.fillStyle = '#94a3b8'; g.font = `600 40px ${font}`; g.fillText(p.period + '限', x0, y);
-      g.fillStyle = p.text ? '#ffffff' : '#64748b'; g.font = `bold 72px ${font}`; g.fillText(p.text || '—', x0 + 150, y + 4);
-      g.fillStyle = '#94a3b8'; g.font = `36px ${font}`; g.textAlign = 'right'; g.fillText(`${p.start}–${p.end}`, W - x0, y); g.textAlign = 'left';
-    });
-    const img = $('wallImg');
-    img.src = c.toDataURL('image/png'); img.style.display = 'block';
-    $('wallHint').hidden = false;
   });
 })();
 </script>
