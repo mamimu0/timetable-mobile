@@ -3,9 +3,9 @@
 ## 公開URL
 
 - **生徒用（クラスを選ぶだけ）**: https://mamimu0.github.io/timetable-mobile/
-- **管理用（自分だけ・PDF更新用）**: https://mamimu0.github.io/timetable-mobile/admin.html
+- **管理用（自分だけ・PDF更新用）**: 生徒用URLの末尾に `admin.html` を付けたページです
 
-管理用URLはどこにもリンクされていないので、このメモかデスクトップのショートカットから開いてください。
+このリポジトリは公開設定なので、このREADMEも誰でも見られます。管理用URLをここに書くと誰でも見つけられてしまうため、実際のURLはブラウザのブックマークやメモアプリなど、GitHub以外の場所に保存してください。
 
 ## 毎週の更新手順
 

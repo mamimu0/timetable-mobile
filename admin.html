@@ -100,7 +100,9 @@
   </section>
 </main>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+  integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=="
+  crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="timetable.js"></script>
 <script>
 (function () {
@@ -108,10 +110,12 @@
   const T = window.Timetable;
   const $ = (id) => document.getElementById(id);
   const WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const WORKER_SRI = 'sha512-BbrZ76UNZq5BhH7LL7pn9A4TKQpQeNCHOo65/akfelcIBbcVvYWOFQKPXIrykE3qZxYjmDX573oa4Ywsc7rpTw==';
   let workerReady = null;
   function setupWorker() {
-    if (!workerReady) workerReady = fetch(WORKER).then((r) => r.blob()).then((b) => { pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(b); })
-      .catch(() => { pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER; });
+    // 整合性(SRI)チェックに失敗した場合は、改ざんされたファイルを読み込まないよう
+    // 検証なしのURLへフォールバックせず、エラーとして呼び出し元に伝える。
+    if (!workerReady) workerReady = fetch(WORKER, { integrity: WORKER_SRI }).then((r) => r.blob()).then((b) => { pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(b); });
     return workerReady;
   }
 
@@ -150,7 +154,12 @@
     const files = [...e.target.files];
     if (!files.length) return;
     $('newWeeks').innerHTML = '読み取り中…';
-    await setupWorker();
+    try {
+      await setupWorker();
+    } catch (err) {
+      $('newWeeks').innerHTML = `<p class="err">PDF読み取りの準備に失敗しました(pdf.worker.jsの検証エラー)。ネットワークの問題か、配信元が改ざんされている可能性があります。時間を置いて再度お試しください。</p>`;
+      return;
+    }
     const results = [];
     for (const f of files) {
       try {
