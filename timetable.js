@@ -144,16 +144,18 @@
     const bells = BELLS[day.is45 ? 45 : 50];
     const periods = [];
     for (let p = 0; p < 7; p++) {
-      let text;
       const note = week.notes[dIdx][p];
-      if (note && note.grades.has(g)) {
-        text = note.text;
-      } else if (sel.grade === 1) {
-        text = week.cells[dIdx][base + ci][p];
+      let own;
+      if (sel.grade === 1) {
+        own = week.cells[dIdx][base + ci][p];
       } else {
         const three = [0, 1, 2].map((k) => week.cells[dIdx][base + k][p]);
-        text = three[three.some((t) => SPLIT_RE.test(t)) ? si : ci];
+        own = three[three.some((t) => SPLIT_RE.test(t)) ? si : ci];
       }
+      // 行事などのメモは、書かれている学年の行のマスしか埋まらないことがある。
+      // 自分の学年のマスが空欄で、同じ日・時限に他学年向けのメモがある場合は、
+      // 学年をまたいだ共通の予定として扱う。
+      const text = note && (note.grades.has(g) || !own) ? note.text : own;
       periods.push({ period: p + 1, text: personalize(text, sel), start: bells[p][0], end: bells[p][1] });
     }
     return { day, periods };
