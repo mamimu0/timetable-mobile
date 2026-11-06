@@ -66,7 +66,12 @@
       let day = m ? +m[2] : null;
       if (!m) {
         m = /(\d{4})\/(\d{1,2})\/(\d{1,2})/.exec(d.text);
-        if (m) { month = +m[2]; day = +m[3]; }
+        if (m) {
+          month = +m[2];
+          day = +m[3];
+          // 「2026/11/9」の直後に「45分授業」などが隙間なく続くと、日にちを2桁(94)に誤読することがあるための救済
+          if (day > 31) day = Math.floor(day / 10);
+        }
       }
       d.hasDate = !!m;
       d.month = month;
