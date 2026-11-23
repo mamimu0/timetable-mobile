@@ -163,10 +163,11 @@
     for (let p = 0; p < 7; p++) {
       const note = week.notes[dIdx][p];
       const own = week.cells[dIdx][resolveRow(week, dIdx, p, sel)][p];
-      // 行事などのメモは、書かれている学年の行のマスしか埋まらないことがある。
-      // 自分の学年のマスが空欄で、同じ日・時限に他学年向けのメモがある場合は、
-      // 学年をまたいだ共通の予定として扱う。
-      const text = note && (note.grades.has(g) || !own) ? note.text : own;
+      // 行事などのメモは、書かれている学年の行にだけ適用する。
+      // 自分の学年のマスが空欄というだけで他学年向けのメモを借りてしまうと、
+      // (「進路オリ」のように)本来1学年だけの予定が他学年にも表示される誤りが起きるため、
+      // メモに自分の学年が含まれている場合だけ適用する。
+      const text = note && note.grades.has(g) ? note.text : own;
       periods.push({ period: p + 1, text: personalize(text, sel), start: bells[p][0], end: bells[p][1] });
     }
     return { day, periods };
