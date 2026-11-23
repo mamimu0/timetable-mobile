@@ -73,6 +73,11 @@
           if (day > 31) day = Math.floor(day / 10);
         }
       }
+      if (!m) {
+        // 年が無く「11/27/」のように末尾にだけ区切りの/が付く表記のPDFがある
+        m = /^(\d{1,2})\/(\d{1,2})\/?$/.exec(d.text);
+        if (m) { month = +m[1]; day = +m[2]; }
+      }
       d.hasDate = !!m;
       d.month = month;
       d.day = day;
@@ -138,25 +143,26 @@
     return text;
   }
 
+  /** 学年・クラス・コースから、ある日・時限で実際に読む行番号を求める(化/物/生/α/β/γ/公共を含む行がある時限は、クラスの行ではなくコースの行を読む) */
+  function resolveRow(week, dIdx, p, sel) {
+    const base = (sel.grade - 1) * 3;
+    if (week.nRows < base + 3) throw new Error(sel.grade + '年の行がこのPDFにありません');
+    const ci = CLASSES.indexOf(sel.cls);
+    if (sel.grade === 1) return base + ci;
+    const si = COURSES.indexOf(sel.course);
+    const three = [0, 1, 2].map((k) => week.cells[dIdx][base + k][p]);
+    return base + (three.some((t) => SPLIT_RE.test(t)) ? si : ci);
+  }
+
   /** 1日分の時間割(選んだ学年・クラス・コースの分) */
   function resolveDay(week, dIdx, sel) {
     const day = week.days[dIdx];
     const g = sel.grade - 1;
-    const base = g * 3;
-    if (week.nRows < base + 3) throw new Error(sel.grade + '年の行がこのPDFにありません');
-    const ci = CLASSES.indexOf(sel.cls);
-    const si = COURSES.indexOf(sel.course);
     const bells = BELLS[day.is45 ? 45 : 50];
     const periods = [];
     for (let p = 0; p < 7; p++) {
       const note = week.notes[dIdx][p];
-      let own;
-      if (sel.grade === 1) {
-        own = week.cells[dIdx][base + ci][p];
-      } else {
-        const three = [0, 1, 2].map((k) => week.cells[dIdx][base + k][p]);
-        own = three[three.some((t) => SPLIT_RE.test(t)) ? si : ci];
-      }
+      const own = week.cells[dIdx][resolveRow(week, dIdx, p, sel)][p];
       // 行事などのメモは、書かれている学年の行のマスしか埋まらないことがある。
       // 自分の学年のマスが空欄で、同じ日・時限に他学年向けのメモがある場合は、
       // 学年をまたいだ共通の予定として扱う。
@@ -305,6 +311,13 @@
     return rest;
   }
 
+  /** 月曜日が新しい方から keep 件だけ残す(デフォルト2件 = 今週+来週分)。古い週は切り落とす。 */
+  function trimHistory(weeksHistory, keep) {
+    keep = keep || 2;
+    const sorted = [...weeksHistory].sort((a, b) => ymd(a.monday).localeCompare(ymd(b.monday)));
+    return sorted.slice(-keep);
+  }
+
   /** 今日を含む(まだ終わっていない)週を選ぶ。なければ一番新しい週。 */
   function pickCurrentWeek(weeksHistory, today) {
     if (!weeksHistory.length) return null;
@@ -316,8 +329,8 @@
   }
 
   return {
-    BELLS, CLASSES, COURSES, WEEKDAYS, fromPdfjs, parseWeek, resolveDay, label, guessMonday, addDays,
+    BELLS, CLASSES, COURSES, WEEKDAYS, GRADES_READY, fromPdfjs, parseWeek, resolveDay, resolveRow, label, guessMonday, addDays,
     buildICS, buildFeedICS, eventsForWeek, icsFromEvents, allCombos, feedFileName,
-    weekToJSON, weekFromJSON, mergeWeek, pickCurrentWeek,
+    weekToJSON, weekFromJSON, mergeWeek, pickCurrentWeek, trimHistory,
   };
 });
