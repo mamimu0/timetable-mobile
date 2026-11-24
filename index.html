@@ -86,7 +86,6 @@
       </div>
     </div>
     <p class="hint" id="gradeHint">3年は準備中です。</p>
- <!--
     <details>
       <summary>α・β・γ を科目名に置き換える(この端末の表示・ダウンロードのみ)</summary>
       <div class="alias">
@@ -95,7 +94,6 @@
         <span>γ</span><input type="text" id="aliasG" placeholder="例: 地理">
       </div>
     </details>
-  -->
   </section>
 
   <section class="card" id="prevCard" hidden>
@@ -153,6 +151,12 @@
   const KEY = 'jikanwari-sel-v1';
   const sel = { grade: 1, cls: 'A', course: 'L', bio: false, alias: { 'α': '', 'β': '', 'γ': '' } };
   try { Object.assign(sel, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  // 保存データが壊れていても動くように、α/β/γ の置き換え名は文字列だけを受け付ける
+  const savedAlias = (sel.alias && typeof sel.alias === 'object') ? sel.alias : {};
+  sel.alias = {};
+  ['α', 'β', 'γ'].forEach((k) => { sel.alias[k] = typeof savedAlias[k] === 'string' ? savedAlias[k] : ''; });
+  // 表に入れる文字を「ただの文字」に変換する(入力に <img onerror=...> などのタグが入っていても実行させない)
+  const escHTML = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(sel)); } catch (e) {} };
 
   let history = null; // [{monday, week}]
@@ -206,10 +210,10 @@
     seg('courseSeg', () => sel.course, (v) => { sel.course = v; }),
     seg('bioSeg', () => (sel.bio ? 'bio' : 'phys'), (v) => { sel.bio = v === 'bio'; }),
   ];
-  /*[['aliasA', 'α'], ['aliasB', 'β'], ['aliasG', 'γ']].forEach(([id, k]) => {
+  [['aliasA', 'α'], ['aliasB', 'β'], ['aliasG', 'γ']].forEach(([id, k]) => {
     $(id).value = sel.alias[k] || '';
     $(id).addEventListener('input', () => { sel.alias[k] = $(id).value; save(); refresh(); });
-  }); */
+  });
 
   const showErr = (msg) => { $('err') && ($('err').hidden = !msg, $('err').textContent = msg || ''); };
 
@@ -228,14 +232,14 @@
     let html = '<tr><th class="p"></th>';
     resolved.forEach((r, d) => {
       const dt = T.addDays(monday, d);
-      html += `<th class="${r.day.off ? 'off' : ''}">${r.day.weekday}<br>${dt.m}/${dt.d}${r.day.is45 ? '<br><span class="badge">45分</span>' : ''}</th>`;
+      html += `<th class="${r.day.off ? 'off' : ''}">${escHTML(r.day.weekday)}<br>${dt.m}/${dt.d}${r.day.is45 ? '<br><span class="badge">45分</span>' : ''}</th>`;
     });
     html += '</tr>';
     for (let p = 0; p < 7; p++) {
       html += `<tr><th class="p">${p + 1}</th>`;
       resolved.forEach((r) => {
         if (r.day.off) html += `<td class="off">${p === 0 ? '休' : ''}</td>`;
-        else { const t = r.periods[p].text; html += `<td class="${t ? '' : 'empty'}">${t || '・'}</td>`; }
+        else { const t = r.periods[p].text; html += `<td class="${t ? '' : 'empty'}">${t ? escHTML(t) : '・'}</td>`; }
       });
       html += '</tr>';
     }
