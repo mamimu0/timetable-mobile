@@ -86,6 +86,7 @@
       </div>
     </div>
     <p class="hint" id="gradeHint">3年は準備中です。</p>
+ <!--
     <details>
       <summary>α・β・γ を科目名に置き換える(この端末の表示・ダウンロードのみ)</summary>
       <div class="alias">
@@ -94,6 +95,7 @@
         <span>γ</span><input type="text" id="aliasG" placeholder="例: 地理">
       </div>
     </details>
+  -->
   </section>
 
   <section class="card" id="prevCard" hidden>
@@ -204,10 +206,10 @@
     seg('courseSeg', () => sel.course, (v) => { sel.course = v; }),
     seg('bioSeg', () => (sel.bio ? 'bio' : 'phys'), (v) => { sel.bio = v === 'bio'; }),
   ];
-  [['aliasA', 'α'], ['aliasB', 'β'], ['aliasG', 'γ']].forEach(([id, k]) => {
+  /*[['aliasA', 'α'], ['aliasB', 'β'], ['aliasG', 'γ']].forEach(([id, k]) => {
     $(id).value = sel.alias[k] || '';
     $(id).addEventListener('input', () => { sel.alias[k] = $(id).value; save(); refresh(); });
-  });
+  }); */
 
   const showErr = (msg) => { $('err') && ($('err').hidden = !msg, $('err').textContent = msg || ''); };
 
